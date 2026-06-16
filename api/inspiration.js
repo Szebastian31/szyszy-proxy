@@ -1,7 +1,7 @@
 // Vercel Serverless Function — /api/inspiration.js
 const CACHE_TTL_MS = 60 * 60 * 1000 // 1 hour
 let cache = { at: 0, data: null }
-const ALLOWED_ORIGIN = "https://szyszy.framer.ai"
+const ALLOWED_ORIGIN = "*" // later: change to "https://szyszy.framer.ai"
 
 const CREATIVE_BOOM_FEEDS = [
   "https://www.creativeboom.com/graphic-design/feed/",
