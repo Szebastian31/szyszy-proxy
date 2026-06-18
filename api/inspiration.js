@@ -7,6 +7,13 @@ const CREATIVE_BOOM_FEEDS = [
   "https://www.creativeboom.com/graphic-design/feed/",
   "https://www.creativeboom.com/feed/",
 ]
+const ITSNICETHAT_FEEDS = [
+  "https://www.itsnicethat.com/feed",
+]
+const COLOSSAL_FEEDS = [
+  "https://www.thisiscolossal.com/category/design/feed/",
+  "https://www.thisiscolossal.com/feed/",
+]
 const BEHANCE_GALLERIES = [
   { key: "illustration",   url: "https://www.behance.net/galleries/illustration" },
   { key: "graphic-design", url: "https://www.behance.net/galleries/graphic-design" },
@@ -21,8 +28,9 @@ function decodeEntities(s = "") {
 }
 function pick(re, str){ const m = re.exec(str); return m ? m[1] : null }
 
-async function getCreativeBoom(){
-  for (const feed of CREATIVE_BOOM_FEEDS){
+// Generic RSS reader — tries each feed in order, returns first that yields items.
+async function getRssFeed(feeds){
+  for (const feed of feeds){
     try{
       const res = await fetch(feed, { headers:{ "User-Agent":UA }})
       if(!res.ok) continue
@@ -75,9 +83,14 @@ export default async function handler(req, res){
     return res.status(200).json({ ...cache.data, cached:true })
   }
   try{
-    const [articles, projects] = await Promise.all([ getCreativeBoom(), getBehance() ])
-    const data = { articles, projects, cachedAt:new Date().toISOString(),
-      sources:{ creativeBoom:articles.length, behance:projects.length } }
+    const [articles, itsnicethat, colossal, projects] = await Promise.all([
+      getRssFeed(CREATIVE_BOOM_FEEDS),
+      getRssFeed(ITSNICETHAT_FEEDS),
+      getRssFeed(COLOSSAL_FEEDS),
+      getBehance(),
+    ])
+    const data = { articles, itsnicethat, colossal, projects, cachedAt:new Date().toISOString(),
+      sources:{ creativeBoom:articles.length, itsnicethat:itsnicethat.length, colossal:colossal.length, behance:projects.length } }
     cache = { at:Date.now(), data }
     res.setHeader("Cache-Control","s-maxage=3600, stale-while-revalidate=86400")
     return res.status(200).json({ ...data, cached:false })
