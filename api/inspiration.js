@@ -8,7 +8,7 @@ const CREATIVE_BOOM_FEEDS = [
   "https://www.creativeboom.com/feed/",
 ]
 const ITSNICETHAT_FEEDS = [
-  "https://www.itsnicethat.com/feed/",
+  "https://feeds.feedburner.com/itsnicethat",
 ]
 const COLOSSAL_FEEDS = [
   "https://www.thisiscolossal.com/category/design/feed/",
