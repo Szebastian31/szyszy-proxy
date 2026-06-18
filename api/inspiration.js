@@ -8,7 +8,7 @@ const CREATIVE_BOOM_FEEDS = [
   "https://www.creativeboom.com/feed/",
 ]
 const ITSNICETHAT_FEEDS = [
-  "https://feeds.feedburner.com/itsnicethat",
+  "https://www.itsnicethat.com/articles.rss", // working feed (feedburner 404s)
 ]
 const COLOSSAL_FEEDS = [
   "https://www.thisiscolossal.com/category/design/feed/",
@@ -28,24 +28,42 @@ function decodeEntities(s = "") {
 }
 function pick(re, str){ const m = re.exec(str); return m ? m[1] : null }
 
-// Generic RSS reader — tries each feed in order, returns first that yields items.
-async function getRssFeed(feeds){
+// Fetch an article's og:image (fallback when the feed has no usable image).
+async function getOgImage(url){
+  try{
+    const res = await fetch(url, { headers:{ "User-Agent":UA }})
+    if(!res.ok) return null
+    const html = await res.text()
+    return pick(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i, html)
+        || pick(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i, html)
+        || null
+  }catch(e){ return null }
+}
+
+// Generic RSS reader. If fillImages=true, scrape og:image for items missing one.
+async function getRssFeed(feeds, fillImages=false){
   for (const feed of feeds){
     try{
       const res = await fetch(feed, { headers:{ "User-Agent":UA }})
       if(!res.ok) continue
       const xml = await res.text()
       const items = xml.split(/<item>/i).slice(1,12)
-      const articles = items.map(block=>({
+      let articles = items.map(block=>({
         title: decodeEntities(pick(/<title>([\s\S]*?)<\/title>/i, block)||""),
         link:  (pick(/<link>([\s\S]*?)<\/link>/i, block)||"").trim(),
         date:  (pick(/<pubDate>([\s\S]*?)<\/pubDate>/i, block)||"").trim(),
         image: pick(/<media:content[^>]*url="([^"]+)"/i, block)
             || pick(/<media:thumbnail[^>]*url="([^"]+)"/i, block)
             || pick(/<enclosure[^>]*url="([^"]+)"/i, block)
-            || pick(/<img[^>]*src="([^"]+)"/i, block) || null,
-      })).filter(a=>a.title && a.link)
-      if(articles.length) return articles.slice(0,6)
+            || null,
+      })).filter(a=>a.title && a.link).slice(0,6)
+
+      if(fillImages){
+        articles = await Promise.all(articles.map(async a =>
+          a.image ? a : { ...a, image: await getOgImage(a.link) }
+        ))
+      }
+      if(articles.length) return articles
     }catch(e){}
   }
   return []
@@ -84,9 +102,9 @@ export default async function handler(req, res){
   }
   try{
     const [articles, itsnicethat, colossal, projects] = await Promise.all([
-      getRssFeed(CREATIVE_BOOM_FEEDS),
-      getRssFeed(ITSNICETHAT_FEEDS),
-      getRssFeed(COLOSSAL_FEEDS),
+      getRssFeed(CREATIVE_BOOM_FEEDS, true),
+      getRssFeed(ITSNICETHAT_FEEDS, true),
+      getRssFeed(COLOSSAL_FEEDS, true),
       getBehance(),
     ])
     const data = { articles, itsnicethat, colossal, projects, cachedAt:new Date().toISOString(),
